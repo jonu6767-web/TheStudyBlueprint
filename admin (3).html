@@ -1,0 +1,447 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin Dashboard | The Study Blueprint</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <!-- Lucide Icons -->
+    <script src="https://cdn.jsdelivr.net/npm/lucide@0.525.0/dist/umd/lucide.min.js"></script>
+    <script>window.lucide = window.lucide || { createIcons: function () {} };</script>
+    <!-- Supabase JS Client -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-900 min-h-screen flex flex-col">
+
+    <!-- Auth Modal / Pin Check -->
+    <div id="auth-modal" class="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-8 shadow-2xl space-y-6">
+            <div class="text-center space-y-2">
+                <div class="w-12 h-12 bg-indigo-600 text-white rounded-2xl flex items-center justify-center mx-auto font-bold text-xl shadow-md">
+                    SB
+                </div>
+                <h2 class="text-2xl font-bold text-slate-900">Admin Portal Login</h2>
+                <p class="text-xs text-slate-500">Log in with your admin email and password to manage live study materials.</p>
+            </div>
+            
+            <form onsubmit="handleLogin(event)" class="space-y-4">
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Admin Email</label>
+                    <input type="email" id="admin-email" required autocomplete="username" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Password</label>
+                    <input type="password" id="admin-pass" required autocomplete="current-password" class="w-full px-4 py-3 rounded-xl border border-slate-300 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+                <p id="login-msg" class="text-xs text-red-600 min-h-4"></p>
+                <button type="submit" id="login-btn" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-md">Access Dashboard</button>
+            </form>
+            
+            <div class="text-center">
+                <a href="index.html" class="text-xs text-indigo-600 hover:underline font-semibold">&larr; Back to Student Portal</a>
+            </div>
+        </div>
+    </div>
+
+    <!-- Admin Header -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-40">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-18 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-bold text-xl shadow-md">
+                    SB
+                </div>
+                <div>
+                    <h1 class="text-lg font-bold text-slate-900 leading-tight">Admin Dashboard</h1>
+                    <p class="text-xs font-semibold text-indigo-600 tracking-wider uppercase">Live Content Manager</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-3">
+                <a href="index.html" target="_blank" class="px-4 py-2 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition">
+                    View Live Site
+                </a>
+                <button onclick="logoutAdmin()" class="px-4 py-2 rounded-xl text-sm font-semibold text-red-600 bg-red-50 hover:bg-red-100 transition">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Admin Main Body -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 w-full space-y-8 flex-grow">
+        
+        <!-- Quick Stats -->
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-bold uppercase text-slate-400">Total Materials</p>
+                <h3 id="stat-materials" class="text-3xl font-extrabold text-slate-900 mt-2">0</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-bold uppercase text-slate-400">Announcements</p>
+                <h3 id="stat-announcements" class="text-3xl font-extrabold text-slate-900 mt-2">0</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-bold uppercase text-slate-400">Live Tests</p>
+                <h3 id="stat-tests" class="text-3xl font-extrabold text-slate-900 mt-2">0</h3>
+            </div>
+            <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xs">
+                <p class="text-xs font-bold uppercase text-slate-400">Class Target</p>
+                <h3 class="text-xl font-bold text-indigo-600 mt-2">Class 10 Only</h3>
+            </div>
+        </div>
+
+        <!-- Forms Grid -->
+        <div class="grid lg:grid-cols-2 gap-8">
+            
+            <!-- 1. Upload Study Material / Video -->
+            <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-6">
+                <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+                    <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+                        <i data-lucide="upload-cloud" class="w-5 h-5"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-900">Upload Study Material / Video</h2>
+                        <p class="text-xs text-slate-500">Publish notes, PYQs, sample papers, notices, or video lectures live.</p>
+                    </div>
+                </div>
+
+                <form onsubmit="handleUploadMaterial(event)" class="space-y-4">
+                    <div class="grid md:grid-cols-2 gap-4">
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Section Category</label>
+                            <select id="mat-category" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white focus:ring-2 focus:ring-indigo-500">
+                                <option value="notes">Notes</option>
+                                <option value="pyqs">PYQs Analysis</option>
+                                <option value="sample_papers">Sample Papers & Our Analysis</option>
+                                <option value="cbse_notices">CBSE Notice & Official Files</option>
+                                <option value="videos">Video Lecture</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Subject / Topic</label>
+                            <input type="text" id="mat-subject" placeholder="e.g. Mathematics, Science" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                        </div>
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Title</label>
+                        <input type="text" id="mat-title" placeholder="e.g. Chapter 4 Quadratic Equations Notes" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Description / Notes Summary</label>
+                        <textarea id="mat-desc" rows="3" placeholder="Brief summary of the material..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500"></textarea>
+                    </div>
+
+                    <div id="file-input-wrap">
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Upload File (PDF / image, max 50 MB)</label>
+                        <input type="file" id="mat-file" class="w-full text-sm mb-3">
+                        <p class="text-[11px] text-slate-400 mb-3">— or paste a link below —</p>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">File URL or PDF Link (Optional / Leave blank if none)</label>
+                        <input type="text" id="mat-file-url" placeholder="https://drive.google.com/... or leave blank" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <div id="video-input-wrap" class="hidden">
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Upload Video File (max 50 MB)</label>
+                        <input type="file" id="mat-vfile" accept="video/*" class="w-full text-sm mb-3">
+                        <p class="text-[11px] text-slate-400 mb-3">— or paste a YouTube link below (best for long videos) —</p>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">YouTube Video Link</label>
+                        <input type="url" id="mat-video-url" placeholder="https://www.youtube.com/watch?v=..." class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+
+                    <button type="submit" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-md">
+                        Publish Material Live
+                    </button>
+                </form>
+            </div>
+
+            <!-- 2. Manage Announcements & Live Tests -->
+            <div class="space-y-8">
+                <!-- Announcement Form -->
+                <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-6">
+                    <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+                        <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+                            <i data-lucide="megaphone" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Post Announcement / Notice</h2>
+                            <p class="text-xs text-slate-500">Website ticker or channel update.</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleUploadAnnouncement(event)" class="space-y-4">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Notice Type</label>
+                                <select id="ann-type" class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm bg-white">
+                                    <option value="website">Website Notice (Ticker / Feed)</option>
+                                    <option value="channel">Channel & Community Notice</option>
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Title</label>
+                                <input type="text" id="ann-title" placeholder="Notice Title" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Content</label>
+                            <textarea id="ann-content" rows="2" placeholder="Notice details..." required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm"></textarea>
+                        </div>
+                        <button type="submit" class="w-full py-3 rounded-xl bg-emerald-600 text-white font-bold hover:bg-emerald-700 transition shadow-md">
+                            Publish Notice Live
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Live Test Form -->
+                <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-6">
+                    <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+                        <div class="w-10 h-10 rounded-xl bg-red-50 text-red-600 flex items-center justify-center">
+                            <i data-lucide="check-square" class="w-5 h-5"></i>
+                        </div>
+                        <div>
+                            <h2 class="text-lg font-bold text-slate-900">Publish Live Test (Google Form)</h2>
+                            <p class="text-xs text-slate-500">Embed Google Form link for live student testing.</p>
+                        </div>
+                    </div>
+
+                    <form onsubmit="handleUploadTest(event)" class="space-y-4">
+                        <div class="grid md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Test Title</label>
+                                <input type="text" id="test-title" placeholder="Science Mock Test #1" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm">
+                            </div>
+                            <div>
+                                <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Subject</label>
+                                <input type="text" id="test-subject" placeholder="Science / Math" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm">
+                            </div>
+                        </div>
+                        <div>
+                            <label class="block text-xs font-bold text-slate-700 uppercase mb-1">Google Form Embed URL</label>
+                            <input type="url" id="test-url" placeholder="https://docs.google.com/forms/d/e/.../viewform?embedded=true" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm">
+                        </div>
+                        <button type="submit" class="w-full py-3 rounded-xl bg-red-600 text-white font-bold hover:bg-red-700 transition shadow-md">
+                            Publish Live Test
+                        </button>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- Donation Settings -->
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-6">
+            <div class="flex items-center space-x-3 pb-4 border-b border-slate-100">
+                <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center"><i data-lucide="heart" class="w-5 h-5"></i></div>
+                <div>
+                    <h2 class="text-lg font-bold text-slate-900">Donation / Support Settings</h2>
+                    <p class="text-xs text-slate-500">Upload your UPI QR code and set your UPI ID. Shown on the "Support Us" page.</p>
+                </div>
+            </div>
+            <form onsubmit="handleSaveDonation(event)" class="grid md:grid-cols-2 gap-6 items-start">
+                <div class="space-y-4">
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">UPI ID</label>
+                        <input type="text" id="don-upi" required class="w-full px-4 py-2.5 rounded-xl border border-slate-300 text-sm focus:ring-2 focus:ring-indigo-500">
+                    </div>
+                    <div>
+                        <label class="block text-xs font-bold text-slate-700 uppercase mb-1">QR Code Image (PNG / JPG, max 5 MB)</label>
+                        <input type="file" id="don-qr" accept="image/*" class="w-full text-sm">
+                    </div>
+                    <button type="submit" id="don-btn" class="w-full py-3 rounded-xl bg-indigo-600 text-white font-bold hover:bg-indigo-700 transition shadow-md">Save Donation Settings</button>
+                </div>
+                <div class="text-center">
+                    <p class="text-xs font-bold uppercase text-slate-400 mb-2">Current QR</p>
+                    <div id="don-preview" class="mx-auto w-48 h-48 rounded-2xl border border-slate-200 bg-slate-50 flex items-center justify-center overflow-hidden text-xs text-slate-400">No QR uploaded yet</div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Recent Uploads Table -->
+        <div class="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-xs space-y-6">
+            <div class="flex items-center justify-between">
+                <h3 class="text-lg font-bold text-slate-900">Manage Published Materials</h3>
+                
+            </div>
+            <div class="overflow-x-auto">
+                <table class="w-full text-left text-sm">
+                    <thead>
+                        <tr class="border-b border-slate-200 text-xs text-slate-400 uppercase">
+                            <th class="py-3 px-4">Title</th>
+                            <th class="py-3 px-4">Category</th>
+                            <th class="py-3 px-4">Subject</th>
+                            <th class="py-3 px-4">Link / File Status</th>
+                            <th class="py-3 px-4 text-right">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="admin-materials-table" class="divide-y divide-slate-100">
+                        <!-- Loaded dynamically -->
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </main>
+
+    <script>
+// Shared Supabase connection (public anon key – safe to publish; security is enforced by database rules)
+const SB_URL = 'https://bllsqlwxtopxfivqqgfi.supabase.co';
+const SB_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImJsbHNxbHd4dG9weGZpdnFxZ2ZpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3OTI0MTIwODMsImV4cCI6MjEwNzk4ODA4M30.pIAUr05Z578X7uIZGJSLbZ5vfRdYD79rQNNlbvCPeuc';
+const _sb = (typeof supabase !== 'undefined') ? supabase.createClient(SB_URL, SB_KEY) : null;
+if (!_sb) window.addEventListener('DOMContentLoaded', function () { var b = document.createElement('div'); b.style.cssText = 'background:#dc2626;color:#fff;padding:10px;text-align:center;font:14px sans-serif'; b.textContent = 'Could not load required files. Please check your internet connection and refresh.'; document.body.prepend(b); });
+function getSupabaseClient() { return _sb; }
+function escapeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;').replace(/'/g,'&#039;'); }
+function safeUrl(u) { return /^https?:\/\//i.test(u || '') ? u : '#'; }
+function ytEmbed(u) { const m = (u || '').match(/(?:v=|youtu\.be\/|embed\/|shorts\/|live\/)([\w-]{11})/); return m ? 'https://www.youtube-nocookie.com/embed/' + m[1] : ''; }
+if (!window.lucide) window.lucide = { createIcons() {} };
+
+    </script>
+    <script>
+        if (window.lucide) lucide.createIcons();
+        const sb = getSupabaseClient();
+        const $ = id => document.getElementById(id);
+
+        $('mat-category').addEventListener('change', e => {
+            const v = e.target.value === 'videos';
+            $('file-input-wrap').classList.toggle('hidden', v);
+            $('video-input-wrap').classList.toggle('hidden', !v);
+        });
+
+        async function gate() {
+            const { data: { session } } = await sb.auth.getSession();
+            if (!session) { $('auth-modal').classList.remove('hidden'); return; }
+            const { data } = await sb.from('admins').select('user_id').eq('user_id', session.user.id).maybeSingle();
+            if (!data) { await sb.auth.signOut(); $('auth-modal').classList.remove('hidden'); $('login-msg').textContent = 'This account is not an admin.'; return; }
+            $('auth-modal').classList.add('hidden');
+            loadAdminData();
+        }
+
+        async function handleLogin(e) {
+            e.preventDefault();
+            $('login-msg').textContent = 'Signing in…';
+            const { error } = await sb.auth.signInWithPassword({ email: $('admin-email').value.trim(), password: $('admin-pass').value });
+            if (error) { $('login-msg').textContent = error.message; return; }
+            $('login-msg').textContent = '';
+            gate();
+        }
+
+        async function logoutAdmin() { await sb.auth.signOut(); location.reload(); }
+
+        async function uploadFile(file, folder) {
+            const path = folder + '/' + Date.now() + '-' + file.name.replace(/[^\w.-]/g, '_');
+            const { error } = await sb.storage.from('materials').upload(path, file);
+            if (error) throw error;
+            return sb.storage.from('materials').getPublicUrl(path).data.publicUrl;
+        }
+
+        async function loadAdminData() {
+            const [m, a, t, st] = await Promise.all([
+                sb.from('materials').select('*').order('created_at', { ascending: false }),
+                sb.from('announcements').select('*').order('created_at', { ascending: false }),
+                sb.from('tests').select('*').order('created_at', { ascending: false }),
+                sb.from('site_settings').select('*')
+            ]);
+            const mats = m.data || [], anns = a.data || [], tests = t.data || [];
+            window._settings = Object.fromEntries((st.data || []).map(r => [r.key, r.value]));
+            $('don-upi').value = window._settings.upi_id || '';
+            if (/^https?:\/\//i.test(window._settings.donation_qr || '')) $('don-preview').innerHTML = '<img src="' + escapeHtml(window._settings.donation_qr) + '" class="w-full h-full object-contain">';
+            $('stat-materials').innerText = mats.length;
+            $('stat-announcements').innerText = anns.length;
+            $('stat-tests').innerText = tests.length;
+            const row = (title, cat, sub, link, table, id, fileUrl) => `
+                <tr class="hover:bg-slate-50">
+                    <td class="py-3 px-4 font-semibold text-slate-800">${escapeHtml(title)}</td>
+                    <td class="py-3 px-4"><span class="bg-indigo-50 text-indigo-700 text-xs px-2 py-0.5 rounded font-bold uppercase">${escapeHtml(cat)}</span></td>
+                    <td class="py-3 px-4 text-slate-600">${escapeHtml(sub || '-')}</td>
+                    <td class="py-3 px-4">${link && link !== '#' ? `<a href="${escapeHtml(safeUrl(link))}" target="_blank" class="text-indigo-600 underline truncate max-w-xs block">Open</a>` : '<span class="text-slate-400">No link</span>'}</td>
+                    <td class="py-3 px-4 text-right"><button data-table="${table}" data-id="${id}" data-file="${escapeHtml(fileUrl || '')}" onclick="deleteItem(this.dataset.table,this.dataset.id,this.dataset.file)" class="text-red-600 hover:bg-red-50 px-3 py-1 rounded-lg text-xs font-semibold">Delete</button></td>
+                </tr>`;
+            const rows = [
+                ...mats.map(x => row(x.title, x.category.replace('_', ' '), x.subject, x.video_url || x.file_url, 'materials', x.id, x.video_url || x.file_url)),
+                ...anns.map(x => row(x.title, 'notice · ' + x.type, '', '', 'announcements', x.id)),
+                ...tests.map(x => row(x.title, 'live test', x.subject, x.google_form_url, 'tests', x.id))
+            ];
+            $('admin-materials-table').innerHTML = rows.join('') || '<tr><td colspan="5" class="py-8 text-center text-slate-400">Nothing published yet.</td></tr>';
+            if (window.lucide) lucide.createIcons();
+        }
+
+        async function handleSaveDonation(e) {
+            e.preventDefault();
+            const btn = $('don-btn'); const old = btn.innerText;
+            btn.disabled = true; btn.innerText = 'Saving…';
+            try {
+                const rows = [{ key: 'upi_id', value: $('don-upi').value.trim() }];
+                const f = $('don-qr').files[0];
+                if (f) {
+                    if (!f.type.startsWith('image/')) throw new Error('Please choose an image file.');
+                    if (f.size > 5 * 1024 * 1024) throw new Error('Image is larger than 5 MB.');
+                    const url = await uploadFile(f, 'donation');
+                    const oldP = ((window._settings || {}).donation_qr || '').split('/object/public/materials/')[1];
+                    if (oldP) await sb.storage.from('materials').remove([decodeURIComponent(oldP)]);
+                    rows.push({ key: 'donation_qr', value: url });
+                }
+                const { error } = await sb.from('site_settings').upsert(rows, { onConflict: 'key' });
+                if (error) throw error;
+                $('don-qr').value = '';
+                loadAdminData();
+                alert('Donation settings saved!');
+            } catch (err) { alert('Could not save: ' + err.message); }
+            btn.disabled = false; btn.innerText = old;
+        }
+
+        async function deleteItem(table, id, fileUrl) {
+            if (!confirm('Delete this item permanently?')) return;
+            const p = (fileUrl || '').split('/object/public/materials/')[1];
+            if (p) await sb.storage.from('materials').remove([decodeURIComponent(p)]);
+            const { error } = await sb.from(table).delete().eq('id', id);
+            if (error) alert(error.message);
+            loadAdminData();
+        }
+
+        async function handleUploadMaterial(e) {
+            e.preventDefault();
+            const btn = e.target.querySelector('button[type=submit]'); const old = btn.innerText;
+            btn.disabled = true; btn.innerText = 'Publishing…';
+            try {
+                const category = $('mat-category').value;
+                let file_url = $('mat-file-url').value.trim() || null;
+                let video_url = $('mat-video-url').value.trim() || null;
+                const f = $('mat-file').files[0], vf = $('mat-vfile').files[0];
+                if (category === 'videos' && vf) video_url = await uploadFile(vf, 'videos');
+                else if (category !== 'videos' && f) file_url = await uploadFile(f, category);
+                const { error } = await sb.from('materials').insert([{
+                    category, subject: $('mat-subject').value.trim(), title: $('mat-title').value.trim(),
+                    description: $('mat-desc').value.trim() || null,
+                    file_url: category === 'videos' ? null : file_url, video_url: category === 'videos' ? video_url : null
+                }]);
+                if (error) throw error;
+                e.target.reset(); $('mat-category').dispatchEvent(new Event('change'));
+                loadAdminData();
+            } catch (err) { alert('Upload failed: ' + err.message); }
+            btn.disabled = false; btn.innerText = old;
+        }
+
+        async function handleUploadAnnouncement(e) {
+            e.preventDefault();
+            const { error } = await sb.from('announcements').insert([{ type: $('ann-type').value, title: $('ann-title').value.trim(), content: $('ann-content').value.trim() }]);
+            if (error) return alert(error.message);
+            e.target.reset(); loadAdminData();
+        }
+
+        async function handleUploadTest(e) {
+            e.preventDefault();
+            let url = $('test-url').value.trim();
+            if (!/embedded=true/.test(url)) url += (url.includes('?') ? '&' : '?') + 'embedded=true';
+            const { error } = await sb.from('tests').insert([{ title: $('test-title').value.trim(), subject: $('test-subject').value.trim(), google_form_url: url, is_active: true }]);
+            if (error) return alert(error.message);
+            e.target.reset(); loadAdminData();
+        }
+
+        window.addEventListener('DOMContentLoaded', gate);
+    </script>
+</body>
+</html>
